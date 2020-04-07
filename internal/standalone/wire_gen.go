@@ -7,8 +7,6 @@ package standalone
 
 import (
 	"context"
-	"time"
-
 	"github.com/aquasecurity/fanal/analyzer"
 	"github.com/aquasecurity/fanal/cache"
 	"github.com/aquasecurity/fanal/extractor/docker"
@@ -19,11 +17,12 @@ import (
 	"github.com/aquasecurity/trivy/pkg/scanner/local"
 	"github.com/aquasecurity/trivy/pkg/types"
 	"github.com/aquasecurity/trivy/pkg/vulnerability"
+	"time"
 )
 
 // Injectors from inject.go:
 
-func initializeDockerScanner(ctx context.Context, imageName string, layerCache cache.ImageCache, localImageCache cache.LocalImageCache, timeout time.Duration) (scanner.Scanner, error) {
+func initializeDockerScanner(ctx context.Context, imageName string, layerCache cache.ImageCache, localImageCache cache.LocalImageCache, timeout time.Duration) (scanner.Scanner, func(), error) {
 	applier := analyzer.NewApplier(localImageCache)
 	detector := ospkg.Detector{}
 	driverFactory := library.DriverFactory{}
@@ -31,19 +30,20 @@ func initializeDockerScanner(ctx context.Context, imageName string, layerCache c
 	localScanner := local.NewScanner(applier, detector, libraryDetector)
 	dockerOption, err := types.GetDockerOption(timeout)
 	if err != nil {
-		return scanner.Scanner{}, err
+		return scanner.Scanner{}, nil, err
 	}
-	extractor, err := docker.NewDockerExtractor(ctx, imageName, dockerOption)
+	extractor, cleanup, err := docker.NewDockerExtractor(ctx, imageName, dockerOption)
 	if err != nil {
-		return scanner.Scanner{}, err
+		return scanner.Scanner{}, nil, err
 	}
 	config := analyzer.New(extractor, layerCache)
 	scannerScanner := scanner.NewScanner(localScanner, config)
-
-	return scannerScanner, nil
+	return scannerScanner, func() {
+		cleanup()
+	}, nil
 }
 
-func initializeArchiveScanner(ctx context.Context, filePath string, layerCache cache.ImageCache, localImageCache cache.LocalImageCache, timeout time.Duration) (scanner.Scanner, error) {
+func initializeArchiveScanner(ctx context.Context, filePath string, layerCache cache.ImageCache, localImageCache cache.LocalImageCache, timeout time.Duration) (scanner.Scanner, func(), error) {
 	applier := analyzer.NewApplier(localImageCache)
 	detector := ospkg.Detector{}
 	driverFactory := library.DriverFactory{}
@@ -51,15 +51,16 @@ func initializeArchiveScanner(ctx context.Context, filePath string, layerCache c
 	localScanner := local.NewScanner(applier, detector, libraryDetector)
 	dockerOption, err := types.GetDockerOption(timeout)
 	if err != nil {
-		return scanner.Scanner{}, err
+		return scanner.Scanner{}, nil, err
 	}
 	extractor, err := docker.NewDockerArchiveExtractor(ctx, filePath, dockerOption)
 	if err != nil {
-		return scanner.Scanner{}, err
+		return scanner.Scanner{}, nil, err
 	}
 	config := analyzer.New(extractor, layerCache)
 	scannerScanner := scanner.NewScanner(localScanner, config)
-	return scannerScanner, nil
+	return scannerScanner, func() {
+	}, nil
 }
 
 func initializeVulnerabilityClient() vulnerability.Client {

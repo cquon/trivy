@@ -106,6 +106,7 @@ func TestServer_Detect(t *testing.T) {
 						Description:      "description",
 						Severity:         common.Severity_MEDIUM,
 						References:       []string{"http://example.com"},
+						Layer:            &common.Layer{},
 					},
 				},
 			},

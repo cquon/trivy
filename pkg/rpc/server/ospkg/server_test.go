@@ -87,6 +87,7 @@ func TestServer_Detect(t *testing.T) {
 						VulnerabilityId: "CVE-2019-0001",
 						PkgName:         "musl",
 						Severity:        common.Severity_HIGH,
+						Layer:           &common.Layer{},
 					},
 				},
 			},
